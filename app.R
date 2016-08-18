@@ -82,13 +82,13 @@ ui <- dashboardPage(
                     uiOutput("ui"),
                     # create date range
                     dateRangeInput("inDateRange", "Date Range Input:"),
-                    actionButton("search","Search")
+                    submitButton("Search")
                   )
                   )
                   ,column(8,tabsetPanel(type = "tabs",
                                         tabPanel("Plot 1",plotOutput("plot1")),
                                         tabPanel("Plot 2", plotOutput("plot2")),
-                                        tabPanel("Table", tableOutput("table"))))
+                                        tabPanel("Table", DT::dataTableOutput("table")))
                 )
               )
       ),
@@ -99,6 +99,7 @@ ui <- dashboardPage(
               )
       )
     )
+)
 )
 )
 
@@ -127,7 +128,13 @@ server <- function(input, output, session) {
                       selected = paste0()
     )
   })
-  
+  #Function to download the csv file
+  output$downloadData <- downloadHandler(
+    filename = "dataset.csv",
+    content = function(output$table) {
+      write.csv(datasetInput(), file)
+    }
+  )
   output$ui <- renderUI({
     if (is.null(input$input_type))
       return()
@@ -166,7 +173,7 @@ server <- function(input, output, session) {
     )
   })
   
-  output$table <- renderTable({
+  output$table <- DT::renderDataTable(DT::datatable({
     dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
     metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
     table <- produce_query(start_date = "2015-09-01",
@@ -178,7 +185,8 @@ server <- function(input, output, session) {
     )
     return(table)
     }
-  )
+  ))
+  
   output$plot2 <- renderPlot({
     dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
     metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
