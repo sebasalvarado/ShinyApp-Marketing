@@ -109,7 +109,28 @@ users_data$month <- lapply(months,function(next_month){
 users_data$month <- factor(users_data$month,levels = as.character(1:12),
                            labels=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sept","Oct","Nov","Dec"),
                            ordered=TRUE)
-aggregated <- aggregate(users_data$newUsers,by=list(Category=users_data$month), FUN = sum)
+
+
+
+##DATA VISUALIZATION EXAMPLES
+users_data <- users_data[,c(-1,-2,-7)]
+#AGGREGATING DATA
+example <- aggregate(month~.,data=users_data,sum,drop=FALSE)#AGGREGATE TU SUM COLUMNS
+aggregated <- aggregate(users~month,data = users_data,sum, drop=FALSE)
+agg2 <- aggregate(newUsers~month,data = users_data,sum, drop=FALSE)
+total <- merge(aggregated,agg2,by="month")
+
+#USING MELT
+melt_agg <- melt(total,id = c("month"))
+melt_agg$value <- as.numeric(melt_agg$value)
+a <- dcast(melt_agg,month ~ value,sum)
+View(users_data)
+melted <- melt(id = "month",total)
+melted <- melted %>% filter(variable != '')
+
+#PLOTTING THE DATA
+#Plot melted data
+ggplot(melted,aes(x=month,y=value)) + geom_point(aes(color=variable))
 #Plot Sessions vs month:Creating a x axis for one year
 ggplot(users_data, aes(x=month,y=newUsers)) + geom_bar(stat="identity")
 ggplot(users_data, aes(x=month,y=newUsers)) + geom_line() + geom_point()

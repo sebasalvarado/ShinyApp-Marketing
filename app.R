@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(gtrendsR)
 source("analytics.R")
 # Add "messages" tool to dashboard
 messageData <- data.frame(from = c("Administrator", "New User", "Support"), 
@@ -58,12 +59,57 @@ ui <- dashboardPage(
                 h1(strong("Facebook Campaigns"), align = "center")
               )
       ),
+      #Create Trends Tab
+      # create google trends tab
       tabItem(tabName = "google_trends",
-              fluidRow(
-                h1(strong("Google Trends"), align  = "center"),
-                br()
-              )
-      ),
+              fluidPage(
+                h1(strong("Google Trends"), align  = "center"),
+                br(),
+                fluidRow(
+                  column(4, wellPanel(
+                    helpText("Give one or more terms that you want R to retrieve data from the Google Trends API.
+                             Use commas to separate terms."),
+                    textInput("terms","Terms:"),
+                    
+                    selectInput("geography", 
+                                label = "Geography:",
+                                choices = c("Worldwide","Afghanistan","Albania","Algeria","Angola","Argentina","Armenia","Australia","Austria",  "Azerbaijan","Bahamas","Bahrain","Bangladesh","Belarus","Belgium","Botswana", "Brazil","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Chad","Chile","China","Colombia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Ecuador","Egypt","Equatorial Guinea","Eritrea","Estonia","Ethiopia","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Hong Kong","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Korea (North)","Korea (South)","Kuwait","Kyrgyzstan","Lebanon","Liberia","Libya","Macedonia","Madagascar","Malawi","Malaysia","Mali","Malta","Mexico","Morocco","Mozambique","Namibia","Nepal","Netherlands","New Zealand","Niger","Nigeria","Norway","Oman","Pakistan","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russian Federation","Rwanda","Saudi Arabia","Senegal","Serbia","Sierra Leone","Singapore","Somalia","South Africa","Spain","Sudan","Swaziland","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uzbekistan","Venezuela","Viet Nam","Yemen","Zaire","Zambia","Zimbabwe"),
+                                selected = "Worldwide"),
+                    
+                    selectInput("period", 
+                                label = "Time Period:",
+                                choices = c("2004-present",
+                                            "Past30Days",
+                                            "Past90Days",
+                                            "Past12Months",
+                                            "2011",
+                                            "2012",
+                                            "2013",
+                                            "2014",
+                                            "2015",
+                                            "2016"),
+                                selected = "2004-present"),
+                    
+                    tags$h1(submitButton("Update!")),
+                    
+                    helpText("To get results, click the 'Update!' button"),
+                    
+                    br(),
+                    br()
+                    )),
+                  column(8, wellPanel(
+                    h4("Interest Over Time"),
+                    plotOutput("myplot")),
+                    br(),
+                    br(),
+                    column(6, wellPanel(
+                      h4("Correlation Between Variables"),
+                      plotOutput("myplot2"))),
+                    column(6, wellPanel(
+                      h4("Pairs Plots"),
+                      plotOutput("myplot3")
+                    ))
+                  )))),
       # create analytics tab
       tabItem(tabName = "analytics",
               fluidPage(
@@ -75,7 +121,8 @@ ui <- dashboardPage(
                     selectInput("input_type", "Type:",
                                 c("Users",
                                   "Sessions",
-                                  "Traffic Sources")
+                                  "Traffic Sources"),
+                                selected = "Users"
                     ),
                     submitButton(text = "Refresh"),
                     # create metrics based on type selected
@@ -132,8 +179,8 @@ server <- function(input, output, session) {
   datasetOutput <- reactive({
     dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
     metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
-    table <- produce_query(start_date = "2015-09-01",
-                           end_date ="2016-06-06",
+    table <- produce_query(start_date = as.character(input$inDateRange[[1]]),
+                           end_date = as.character(input$inDateRange[[2]]),
                            dimensions = dim_str,
                            metrics = metrics_str,
                            sort = "-ga:date",
@@ -192,16 +239,6 @@ server <- function(input, output, session) {
   
   output$table <- DT::renderDataTable(DT::datatable({
     datasetOutput()
-#     dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
-#     metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
-#     table <- produce_query(start_date = "2015-09-01",
-#                            end_date ="2016-06-06",
-#                            dimensions = dim_str,
-#                            metrics = metrics_str,
-#                            sort = "-ga:date",
-#                            token = token
-#     )
-#     return(table)
     }
   ))
   
@@ -241,6 +278,113 @@ server <- function(input, output, session) {
                          min = paste("2015-09-", c_num, sep=""),
                          max = paste("2016-09-", c_num, sep="")
     )})
+  
+  #SERVER CODE FOR TRENDS-----------------------------------------------------------------
+  gconnect('rlousta13@gmail.com','rafael13')
+  
+  out <- reactive({
+    if(length(input$terms)>0){
+      
+      unlist(strsplit(input$terms,","))
+    }
+  })
+  
+  start_date<-reactive({
+    
+    if(input$period=="2004-present"){as.Date("2004-01-01")}
+    
+    else if (input$period=="Past90Days"){as.Date(Sys.time())-90}
+    
+    else if (input$period=="Past30Days"){as.Date(Sys.time())-30}
+    
+    else if (input$period=="Past12Months"){
+      m=as.POSIXlt(as.Date(Sys.time()))
+      m$year=m$year-1
+      m}
+    
+    else if (input$period=="2011"){as.Date("2011-01-01")}
+    else if (input$period=="2012"){as.Date("2012-01-01")}
+    else if (input$period=="2013"){as.Date("2013-01-01")}
+    else if (input$period=="2014"){as.Date("2014-01-01")}
+    else if (input$period=="2015"){as.Date("2015-01-01")}
+    else if (input$period=="2016"){as.Date("2016-01-01")}
+    
+  })
+  
+  end_date<-reactive({
+    
+    if(input$period %in% c("2004-present", "Past30Days",
+                           "Past90Days","Past12Months"))
+    {
+      as.Date(Sys.time())}
+    
+    else if (input$period=="2011"){as.Date("2011-12-31")}
+    else if (input$period=="2012"){as.Date("2012-12-31")}
+    else if (input$period=="2013"){as.Date("2013-12-31")}
+    else if (input$period=="2014"){as.Date("2014-12-31")}
+    else if (input$period=="2015"){as.Date("2015-12-31")}
+    else if (input$period=="2016"){as.Date(Sys.time())} 
+    
+  })
+  
+  geo<-reactive({
+    if(input$geography=="Worldwide"){""}
+    
+    else{
+      
+      countries$CODE[countries$COUNTRY==input$geography]
+    }
+    
+  })
+  
+  data<-reactive({
+    if(length(out()>0))
+    {
+      out2<-gtrends(query=out(),start_date=start_date(),end_date=end_date(),geo=geo())
+    }
+    
+  })
+  
+  output$myplot <- renderPlot({
+    if(length(out()>0)){
+      z=data()
+      trend=z$trend
+      
+      if("end"%in%names(trend)==T)
+      {
+        trend=select(trend,-end)}
+      
+      trend <- melt(trend, id='start')
+      
+      ggplot(trend, aes(start,value, color=variable)) + geom_line()+
+        ylab("Relative Trend")+
+        theme(plot.title = element_text(size = 20))+
+        xlab("Time Period")+
+        theme(axis.title.y = element_text(size=16),
+              axis.title.x = element_text(size=16),
+              axis.text.y = element_text(size=14),
+              axis.text.x = element_text(size=14)) +
+        theme(legend.title = element_text(colour="black", size=15, 
+                                          face="bold"))+
+        theme(legend.text = element_text(colour="black", size=14))
+      
+    }
+  })
+  
+  
+  output$myplot2 <- renderPlot({
+    if(length(out()>0)){
+      z=data()
+      trending_data <- z$trend
+      corrplot.mixed(cor(trending_data[,c(-1,-2)]), lower = "ellipse",upper="number")
+    }})
+  
+  output$myplot3 <- renderPlot({
+    if(length(out()>0)){
+      z=data()
+      trending_data <- z$trend
+      plot(trending_data[,c(-1,-2)])
+    }}) 
 }
 
 shinyApp(ui, server)
