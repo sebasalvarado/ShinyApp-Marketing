@@ -82,7 +82,8 @@ ui <- dashboardPage(
                     uiOutput("ui"),
                     # create date range
                     dateRangeInput("inDateRange", "Date Range Input:"),
-                    submitButton("Search")
+                    submitButton("Search"),
+                    downloadButton('downloadData', 'Download')
                   )
                   )
                   ,column(8,tabsetPanel(type = "tabs",
@@ -128,11 +129,27 @@ server <- function(input, output, session) {
                       selected = paste0()
     )
   })
+  datasetOutput <- reactive({
+    dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
+    metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
+    table <- produce_query(start_date = "2015-09-01",
+                           end_date ="2016-06-06",
+                           dimensions = dim_str,
+                           metrics = metrics_str,
+                           sort = "-ga:date",
+                           token = token
+    )
+    #Turn the date column to a more friendly representation
+    table$date<- lapply(table$date,function(date){
+      ymd(date)
+    })
+    return(table)
+  })
   #Function to download the csv file
   output$downloadData <- downloadHandler(
     filename = "dataset.csv",
-    content = function(output$table) {
-      write.csv(datasetInput(), file)
+    content = function(file) {
+      write.csv(datasetOutput(), file)
     }
   )
   output$ui <- renderUI({
@@ -174,16 +191,17 @@ server <- function(input, output, session) {
   })
   
   output$table <- DT::renderDataTable(DT::datatable({
-    dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
-    metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
-    table <- produce_query(start_date = "2015-09-01",
-                           end_date ="2016-06-06",
-                           dimensions = dim_str,
-                           metrics = metrics_str,
-                           sort = "-ga:date",
-                           token = token
-    )
-    return(table)
+    datasetOutput()
+#     dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
+#     metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
+#     table <- produce_query(start_date = "2015-09-01",
+#                            end_date ="2016-06-06",
+#                            dimensions = dim_str,
+#                            metrics = metrics_str,
+#                            sort = "-ga:date",
+#                            token = token
+#     )
+#     return(table)
     }
   ))
   
