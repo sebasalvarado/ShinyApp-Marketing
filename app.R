@@ -1,6 +1,9 @@
 library(shiny)
 library(shinydashboard)
 library(gtrendsR)
+library(httr)
+library(stringi)
+library(stringr)
 source("analytics.R")
 # Add "messages" tool to dashboard
 messageData <- data.frame(from = c("Administrator", "New User", "Support"), 
@@ -134,8 +137,8 @@ ui <- dashboardPage(
                   )
                   )
                   ,column(8,tabsetPanel(type = "tabs",
-                                        tabPanel("Plot 1",plotOutput("plot1")),
-                                        tabPanel("Plot 2", plotOutput("plot2")),
+                                        tabPanel("Scatter Plot",plotOutput("plot1")),
+                                        tabPanel("Bar Plot", plotOutput("plot2")),
                                         tabPanel("Table", DT::dataTableOutput("table")))
                 )
               )
@@ -176,6 +179,7 @@ server <- function(input, output, session) {
                       selected = paste0()
     )
   })
+  #Function that communicates with our Analytics API
   datasetOutput <- reactive({
     dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
     metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
@@ -186,10 +190,9 @@ server <- function(input, output, session) {
                            sort = "-ga:date",
                            token = token
     )
-    #Turn the date column to a more friendly representation
-    table$date<- lapply(table$date,function(date){
-      ymd(date)
-    })
+    #Turn the date column to a friendlier date representation
+    dates <- ymd(table$date)
+    table$date <- dates
     return(table)
   })
   #Function to download the csv file
@@ -242,31 +245,16 @@ server <- function(input, output, session) {
     }
   ))
   
+  output$plot1 <- renderPlot({
+    #Call our function to produce 
+    table <- datasetOutput()
+    plot <- generate_bar_plots(table,input$checkbox_metrics,input$inDateRange,"scatter")
+    return(plot)
+  })
   output$plot2 <- renderPlot({
-    dim_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = DIMENSIONS,type="dimensions")
-    metrics_str <- generate_metric_string(metrics = (input$checkbox_metrics),dict = METRICS,type = "metrics")
-    table <- produce_query(start_date = "2015-09-01",
-                          end_date ="2016-06-06",
-                          dimensions = dim_str,
-                          metrics = metrics_str,
-                          sort = "-ga:date",
-                          token = token
-    )
-    months<- lapply(table$date,function(date){
-      ymd(date)
-    })
-    #Create a column with the months
-    table$month <- lapply(table$month,function(next_month){
-      month(next_month)
-    })
-    #Name each month
-# #     table$month<- factor(table$month,levels = as.character(1:12),
-# #                                labels=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sept","Oct","Nov","Dec"),
-# #                                ordered=TRUE)
-#     print(sapply(table,class))
-    #aggregated <- aggregate(table$newUsers,by=list(Category=table$month), FUN = sum)
-    #graph <- ggplot(aggregated, aes(x=Category,y=x)) + geom_point()
-    plot(table$date,table$newUsers)
+    table <- datasetOutput()
+    plot <- generate_bar_plots(table,input$checkbox_metrics,input$inDateRange,"bar")
+    return(plot)
   })
   
   observe({

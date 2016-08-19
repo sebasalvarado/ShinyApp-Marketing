@@ -4,6 +4,7 @@ library(RGA)
 library(lubridate)
 library(ggplot2)
 library(shiny)
+library(xts)
 #Get API secret and API key 
 client_id <- "382868859178-4r1399o1pf149nug2hsa74l1do92qtve.apps.googleusercontent.com"
 client_secret <-"oKxAIi6dOmwS8pC4P1rtOyMt"
@@ -97,10 +98,9 @@ audiences_data <- produce_query(INIT_DATE,FINISH_DATE,
 
 
 #Plotting our Data:Using ggplot
-View(users_data)
-months<- lapply(users_data$date,function(date){
-  ymd(date)
-})
+months<- ymd(users_data$date)
+as.Date()
+users_data$date <- months
 #Create a column with the months
 users_data$month <- lapply(months,function(next_month){
   month(next_month)
@@ -113,7 +113,12 @@ users_data$month <- factor(users_data$month,levels = as.character(1:12),
 
 
 ##DATA VISUALIZATION EXAMPLES
-users_data <- users_data[,c(-1,-2,-7)]
+users_data <- users_data[,c(-2,-6,-7)]
+View(users_data)
+sapply(users_data,class)
+users_data$sessionCount <- as.numeric(users_data$sessionCount)
+aggregated <- aggregate(.~date,data=users_data,sum,drop=FALSE)
+apply.monthly(users_data,sum)
 #AGGREGATING DATA
 example <- aggregate(month~.,data=users_data,sum,drop=FALSE)#AGGREGATE TU SUM COLUMNS
 aggregated <- aggregate(users~month,data = users_data,sum, drop=FALSE)
@@ -121,10 +126,8 @@ agg2 <- aggregate(newUsers~month,data = users_data,sum, drop=FALSE)
 total <- merge(aggregated,agg2,by="month")
 
 #USING MELT
-melt_agg <- melt(total,id = c("month"))
+melt_agg <- melt(aggregated,id = c("month"))
 melt_agg$value <- as.numeric(melt_agg$value)
-a <- dcast(melt_agg,month ~ value,sum)
-View(users_data)
 melted <- melt(id = "month",total)
 melted <- melted %>% filter(variable != '')
 
@@ -135,7 +138,22 @@ ggplot(melted,aes(x=month,y=value)) + geom_point(aes(color=variable))
 ggplot(users_data, aes(x=month,y=newUsers)) + geom_bar(stat="identity")
 ggplot(users_data, aes(x=month,y=newUsers)) + geom_line() + geom_point()
 ggplot(aggregated,aes(x=Category,y=x)) + geom_point() + geom_line()
+
 #Improve the graph
+ggplot(melted,aes(month,value)) + geom_bar(aes(color=variable),stat="identity") + facet_wrap(~variable,ncol=1)
+ggplot(melt_agg,aes(month,value)) + geom_bar(aes(color=variable),stat="identity") + facet_wrap(~variable,ncol=1)
+
+ggplot(melt_agg,aes(month,value)) + geom_point(aes(color=variable))
+ggplot(users_data, aes(x=month,y=users)) + geom_bar(stat="identity") + facet_wrap(~userType,ncol=1)
 ggplot(users_data, aes(x=month,y=users)) + geom_bar(stat="identity") + facet_wrap(~userType,ncol=1)
 
 #Make the graph with colours
+
+#Scatter Plot
+theme_new <- theme_bw() + theme(plot.background=element_rect(size=1, color="blue",fill="black"),text=element_text(size=12, family= "Serif",color="ivory"),axis.text.y=element_text(colour = "purple"))
+ggplot(melt_agg,aes(x=month,value,group=variable,color=variable)) + geom_point() + geom_line() + facet_wrap(~variable,ncol = 1) + theme_bw()
+
+ggplot(melted, aes(month)) +
+  geom_bar() +
+  facet_wrap(~variable, scales="free")
+

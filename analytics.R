@@ -79,32 +79,69 @@ partition_metrics <- function(metrics){
   return(final_list)
 }
 
-
 #'@description function that returns a list of ggplot objects for the User type of Graph
 #'@params dataframe, it must be a tidy dataframe because the function makes it long
 #'@return List of graph objects to plot
 #'
-generate_plots<- function(dataframe,list_metrics,date_range){
+generate_bar_plots<- function(dataframe,list_metrics,date_range,type='bar'){
   #Find the date Range
-  difference_days <- (date_range[[2]] - date_range[[1]])[[1]]
+  difference_days <- (date_range[2] - date_range[1])[[1]]
   #If its less than 60 days work by weeks
   if(difference_days  < 60){
     #Add a WeekNum to the dataframe
-    dataframe$WeekNum <- as.numeric(format(train$date+3,"%U"))
+    dataframe$time <- as.numeric(format(train$date+3,"%U"))
   }
-  else{
-    #Add a Months Column in my Dataframe
-    dataframe$month <- lapply(months,function(next_month){
-      month(next_month)
-    })
-    #Name it as a factor
-    dataframe$time <- factor(dataframe$month,levels = as.character(1:12),
-                               labels=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sept","Oct","Nov","Dec"),
-                               ordered=TRUE)
-  }
-  #Melt the dataframe to make it long
-  dataframe <- met(id = 'date',dataframe)
-  #Delete the ones where variable is empty
-  dataframe <- dataframe %>% filter(variable != '')
+  #grouped <- group_by(dataframe,names(dataframe))
+  #Check which values are categorical that we cannot add together
+  # dataframe <-aggregate(.~date,data=dataframe,sum)
   #Know how many categorical variables we have 
+  metrics_variables <- partition_metrics(list_metrics)
+  categorical <- metrics_variables[["Categorical"]]
+  #Check if User Type is there
+  if("User Type" %in% categorical){
+    #Melt the dataframe to make it long
+    dataframe <- melt(id = c('date','userType'),dataframe)
+    #Delete the ones where variable is empty
+    dataframe$value <- as.numeric(dataframe$value)
+    dataframe <- dataframe %>% filter(variable != '')
+    if(type == 'bar'){
+      graph <-ggplot(dataframe,aes(date,value,fill=userType)) + geom_bar(aes(color=userType),stat="identity",position = "dodge") + facet_wrap(~variable,ncol=1) + theme_minimal()
+      return(graph)
+    }
+    else{
+      graph <- ggplot(dataframe,aes(x=date,value,group=userType,color=userType)) + geom_point() + geom_line() + facet_wrap(~variable,ncol = 1) + theme_bw()
+      return(graph)
+      }
+  }
+  if("Age Range" %in% categorical){
+    #Melt the dataframe to make it long
+    dataframe <- melt(id = c('date','userAgeBracket'),dataframe)
+    #Delete the ones where variable is empty
+    dataframe$value <- as.numeric(dataframe$value)
+    dataframe <- dataframe %>% filter(variable != '')
+    if(type == 'bar'){
+      graph <-ggplot(dataframe,aes(date,value,fill=userAgeBracket)) + geom_bar(aes(color=userAgeBracket),stat="identity",position="dodge") + facet_wrap(~variable,ncol=1) + theme_minimal()
+      return(graph)
+    }
+    else{
+      graph <- ggplot(dataframe,aes(x=date,value,group=userAgeBracket,color=userAgeBracket)) + geom_point() + geom_line() + facet_wrap(~variable,ncol = 1) + theme_bw()
+      return(graph)
+    }
+  }
+  if("Gender" %in% categorical){
+    #Melt the dataframe to make it long
+    dataframe <- melt(id = c('date','userGender'),dataframe)
+    #Delete the ones where variable is empty
+    dataframe$value <- as.numeric(dataframe$value)
+    dataframe <- dataframe %>% filter(variable != '')
+    if(type == 'bar'){
+      graph <-ggplot(dataframe,aes(date,value,fill=userGender)) + geom_bar(aes(color=userGender),stat="identity",position = "dodge") + facet_wrap(~variable,ncol=1) + theme_minimal()
+      return(graph)
+    }
+    else{
+      graph <- ggplot(dataframe,aes(x=date,value,group=userGender,color=userGender)) + geom_point() + geom_line() + facet_wrap(~variable,ncol = 1) + theme_bw()
+      return(graph)
+    }
+    }
 }
+
